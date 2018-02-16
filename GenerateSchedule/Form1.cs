@@ -89,19 +89,19 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
 
 
             var dateTable = GetQ($"SELECT * FROM ScheduleActualData "
-                                +$"Where StartDate='{comboBox1.SelectedValue.ToString().Split('|')[0]}' And  "+
-                                $"sid not in (select sid from srouter where sid <>'' and sid is not null) and "+
+                                + $"Where StartDate='{comboBox1.SelectedValue.ToString().Split('|')[0]}' And  " +
+                                $"sid not in (select sid from srouter where sid <>'' and sid is not null) and " +
                                 $" EndDate='{comboBox1.SelectedValue.ToString().Split('|')[1]}'");
             try
             {
-                foreach (DataRow row in dateTable.Rows)
+                foreach (DataRow sRow in dateTable.Rows)
                 {
 
 
-                    var EmpId = row["EmpId"].ToString();
-                    var SID = row["SID"].ToString();
-                    var Center = row["Center"].ToString();
-                    var Name = row["Name"].ToString();
+                    var EmpId = sRow["EmpId"].ToString();
+                    var SID = sRow["SID"].ToString();
+                    var Center = sRow["Center"].ToString();
+                    var Name = sRow["Name"].ToString();
                     var offDate = false;
                     await Task.Delay(30);
                     textBox1.Text = EmpId;
@@ -112,7 +112,7 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                     //تحديد اذا كان كل الايام personal 
                     foreach (var columnName in dateTable.Columns.Cast<DataColumn>().Where(c => c.ColumnName.StartsWith("DT")).Select(s => s.ColumnName).ToArray())
                     {
-                        if (row[columnName].ToString().Contains("personal") || row[columnName].ToString().Contains("off"))
+                        if (sRow[columnName].ToString().Contains("personal") || sRow[columnName].ToString().Contains("off"))
                         {
                             offDate = true;
 
@@ -132,16 +132,16 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                         foreach (var columnName in dateTable.Columns.Cast<DataColumn>().Where(c => c.ColumnName.StartsWith("DT")).Select(s => s.ColumnName).ToArray())
                         {
                             //   if (row[columnName].ToString().Contains("personal") || row[columnName].ToString().ToLower().Contains("off"))???
-                            if (row[columnName].ToString().ToLower().Contains("off"))
+                            if (sRow[columnName].ToString().ToLower().Contains("off"))
                             {
                                 offDayes.Add(columnName);
                                 offDayesStr += dayNames[columnName] + ",";
                             }
                             else
                             {
-                                shifts.Add(row[columnName].ToString());
+                                shifts.Add(sRow[columnName].ToString());
                             }
-                            shifts1.Add(row[columnName].ToString());
+                            shifts1.Add(sRow[columnName].ToString());
                         }
                     }
                     //الحصول على الايام التي لاتحتوي على اجازة وتجميعها حسب الشفت من الاكثرتكرار الى الاقل
@@ -176,15 +176,15 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                         var SRouter = r["shift"].ToString().Split(new[] { '-' });
                         textBox2.Text = shiftTime;
                         textBox3.Text = r["shift"].ToString();
-                        var curr = shiftTime.Split(new[] { '-' });//فصل الوقت في الوردية الاكثر تكرارا
+                        var currShiftTime = shiftTime.Split(new[] { '-' });//فصل الوقت في الوردية الاكثر تكرارا
 
 
                         //حساب الفرق بين بداية الوردية السابقة والوردية الجديدة بالساعات
                         int minD = 0;
-                        if (curr[0].ToString() != "personal")
+                        if (currShiftTime[0].ToString() != "personal")
                         {
                             var SRoutert = int.Parse(SRouter[0].Trim().Split(':')[0]);
-                            var currt = int.Parse(curr[0].Trim().Split(':')[0]);
+                            var currt = int.Parse(currShiftTime[0].Trim().Split(':')[0]);
                             if (SRoutert > currt && SRoutert != 0 && currt != 0)
                                 minD = SRoutert - currt;
                             else if (currt == 0 && SRoutert > 0 && SRoutert <= 12)
@@ -223,27 +223,31 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                         //اذا كان وقت الخروج  من الوردية الجديد لايساوي وقت الدخول في الوردية السابقة اوكان وقت الدخول في الوردية الجديدة هو وقت الخروج من الوردية السابقة 
                         //
 
+                        var fShift0 = r["shift"].ToString().Split('-')[0].Trim();
+                        var eShift1 = r["shift"].ToString().Split('-')[1].Trim();
+                        var currentStrShift0 = currShiftTime[0].Trim();
+                        var currentEndShift1 = currShiftTime[1].Trim();
+
                         var hasPersonal = shiftTime.Equals("personal", StringComparison.OrdinalIgnoreCase);
-                        var fShift = r["shift"].ToString().Split('-')[1];
-                        var currentShift = curr[0].Trim();
-                        if ((hasPersonal ||!(r["shift"].ToString().Split('-')[1].Trim() == curr[0].Trim()) ||
+                        var endShiftEqCurrentStrShift = eShift1 == currentStrShift0;
+                        var fshftEqEndCurr = fShift0 == currentEndShift1;
+                        var hasSunDay = r["dayoff"].ToString().Contains("Sun");
+                        //&& !chkShift.Checked
+                        if (shiftTime.Trim() == r["shift"].ToString().Trim())
+                        {
+                            string xgd = "";
+                        }
 
-                            ((r["shift"].ToString().Split('-')[1].Trim() == (curr[0].Trim()) || 
-                            r["shift"].ToString().Split('-')[0].Trim() == (curr[1].Trim())) && 
-                            r["dayoff"].ToString().Contains("Sun"))
-
-                   ) && !chkShift.Checked)
+                        //if (hasPersonal || (!(endShiftEqCurrentStrShift || fshftEqEndCurr)) || ((endShiftEqCurrentStrShift || fshftEqEndCurr) && hasSunDay))
                         //    if (!(shiftTime.Equals("personal", StringComparison.OrdinalIgnoreCase))) continue;
                         //if()
 
                         //مراجعة
 
-                        //     if (shiftTime.Equals("personal", StringComparison.OrdinalIgnoreCase) ||
-                        //!(r["shift"].ToString().Split('-')[1].Trim() == (curr[0].Trim()) || r["shift"].ToString().Split('-')[0].Trim() == (curr[1].Trim())) ||
-
-                        //((r["shift"].ToString().Split('-')[1].Trim() == (curr[0].Trim()) || r["shift"].ToString().Split('-')[0].Trim() == (curr[1].Trim())) && r["dayoff"].ToString().Contains("Sun"))
-
-                        //)
+                        //if (shiftTime.Equals("personal", StringComparison.OrdinalIgnoreCase) || 
+                        // !(r["shift"].ToString().Split('-')[1].Trim() == curr[0].Trim() || r["shift"].ToString().Split('-')[0].Trim() == curr[1].Trim()) ||
+                        // ((r["shift"].ToString().Split('-')[1].Trim() == curr[0].Trim() || r["shift"].ToString().Split('-')[0].Trim() == curr[1].Trim()) 
+                        // && r["dayoff"].ToString().Contains("Sun")) && !chkShift.Checked)
                         {
                             //if (!shiftTime.Equals("personal", StringComparison.OrdinalIgnoreCase))
                             //if (shifts[0].ToLower() != "personal" && shifts1[0].ToLower() != "off")
@@ -255,10 +259,10 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                             //var h1 = sdt1.Subtract(edt1).Hours;
 
                             int x = 12;
-                            if (curr[0].ToString() != "personal")
+                            if (currShiftTime[0].ToString() != "personal")
                             {
                                 var sdt = int.Parse(SRouter[0].Trim().Split(':')[0]);
-                                var edt = int.Parse(curr[1].Trim().Split(':')[0]);
+                                var edt = int.Parse(currShiftTime[1].Trim().Split(':')[0]);
                                 if (sdt > 0 && sdt < edt)
                                     x = 24 - edt + sdt;
                                 else if (edt == 0 && sdt > 0)
@@ -343,8 +347,11 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                                                     DT16 = '{string.Format("{0}", df.ToString().Contains("Fri") == true ? "Off" : r["shift"])}',
                                                     DT17 = '{string.Format("{0}", df.ToString().Contains("Sat") == true ? "Off" : r["shift"])}'
                                                       Where ID={r["id"]}";
-                                if (shiftTime == r["shift"].ToString())
-                                { SameShift++; textBox8.Text = SameShift.ToString(); }
+                                if (shiftTime.Trim() == r["shift"].ToString().Trim())
+                                {
+                                    SameShift++;
+                                    textBox8.Text = SameShift.ToString();
+                                }
                                 if (offDayesStr.Substring(0, 7) == df.ToString())
                                 { SameOff++; textBox9.Text = SameOff.ToString(); }
                                 textBox5.Text = Scheduled.ToString();
@@ -555,15 +562,26 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                         oda.Fill(dt);
                         //con.Close();
                         DataTable Skills = new DataTable();
-                        cmd.CommandText = "SELECT distinct skills From [" + sheetName + "]";
+                        cmd.CommandText = "SELECT distinct Center From [" + sheetName + "]";
                         //con.Open();
                         oda.SelectCommand = cmd;
                         oda.Fill(Skills);
 
                         foreach (DataRow row in Skills.Rows)
                         {
-                            listBox1.Items.Add(row["skills"].ToString());
+                            listBox1.Items.Add(row["Center"].ToString());
                         }
+                        StringBuilder stringBuilder = new StringBuilder();
+                        foreach (DataRow dr in dt.Rows)
+                        {
+                            stringBuilder.Append(
+                            $@"INSERT INTO dbo.ScheduleActualData 
+                                        (EmpId,SID,Name,Center,StartDate,EndDate,DT01,DT02,DT03,DT04,DT05,DT06,DT07,DT11,DT12,DT13,DT14,DT15,DT16,DT17 ) Values 
+                                        ('{dr["EmpId"]}','{dr["SID"]}','{dr["Name"]}','{dr["Center"]}','{dr["StartDate"]}','{dr["EndDate"]}','{dr["DT01"]}','{dr["DT02"]}',
+'{dr["DT03"]}','{dr["DT04"]}','{dr["DT05"]}','{dr["DT06"]}','{dr["DT07"]}','{dr["DT11"]}','{dr["DT12"]}','{dr["DT13"]}','{dr["DT14"]}','{dr["DT15"]}',
+'{dr["DT16"]}','{dr["DT17"]}' );");
+                        }
+                        stringBuilder.ToString().Exec();
                         //Populate DataGridView.  
                         con.Close();
                         dataGridView2.DataSource = dt;
