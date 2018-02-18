@@ -33,11 +33,10 @@ namespace GenerateSchedule
             comboBox3.SelectedIndex = 6;
             comboBox4.SelectedIndex = 12;
             cmbH.SelectedIndex = 4;
-            var hdr = GetQ(@"SELECT DISTINCT CONVERT(NVARCHAR(555),StartDate) +'-'+ CONVERT(NVARCHAR(555),EndDate) DisplayName,CONVERT(NVARCHAR(555),StartDate) +'|'+ 
-CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
-            comboBox1.DataSource = hdr;
-            comboBox1.DisplayMember = "DisplayName";
-            comboBox1.ValueMember = "Value";
+            var hdr = GetQ(@" select distinct skillkey DisplayName, skillkey Value FROM ScheduleActualData");
+            comboBox5.DataSource = hdr;
+            comboBox5.DisplayMember = "DisplayName";
+            comboBox5.ValueMember = "Value";
 
         }
 
@@ -63,6 +62,11 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
 
         private async void button1_Click(object sender, EventArgs e)
         {
+            List<string> SelectCntrsShift = new List<string>();
+            for (int i = 0; i < dataGridView1.Rows.Count; i++)
+            {
+                SelectCntrsShift.Add(dataGridView1.Rows[i].Cells[0].Value.ToString() + dataGridView1.Rows[i].Cells[1].Value.ToString());
+            }
 
             if (comboBox2.SelectedIndex < 0 || comboBox3.SelectedIndex < 0 || comboBox4.SelectedIndex < 0) return;
             var sDt = DateTime.Parse(comboBox1.SelectedValue.ToString().Split('|')[0]);
@@ -156,11 +160,26 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                         shiftTime = "personal";
                     shifts1.Reverse();//تحتوي على الوردية كاملة معكوسة
                     shifts.Reverse();//تحتوي على الوردية بدون الراحات
-                    var tb = GetQ($"SELECT * FROM SRouter Where isnull(CNTR,'0') <> '*'");
+                    var tb = GetQ($"SELECT * FROM SRouter Where isnull(CNTR,'0') <> '*' and skillkey='"+comboBox5.SelectedValue+"' and sdate='"+ comboBox1.SelectedValue.ToString().Split('-')[0].ToString() + "' and edate ='"+ comboBox1.SelectedValue.ToString().Split('-')[1].ToString() + "'");
 
                     foreach (DataRow r in tb.Rows)
                     {
                         counter++;
+                        //var hasCenter = false;
+                        //foreach (var item in SelectCntrsShift)
+                        //{
+                        //    if (SelectCntrsShift.Contains(Center))
+                        //    {
+                        //        hasCenter = true;
+                        //        break;
+                        //    }
+
+                        //}
+                        var arry = SelectCntrsShift.Where(s => s.Contains(Center)).ToArray();
+                        if (!(arry.Any(s => s.Contains(r["shift"].ToString().Trim()))))
+                        {
+                            continue;
+                        }
                         //var shft =  r["shift"].ToString().Split(new[] { '-' })[1].Trim();
                         //var sdt = Convert.ToDateTime(shft);
 
@@ -459,7 +478,7 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
         private void button2_Click(object sender, EventArgs e)
         {
             openFileDialog1.ShowDialog();
-            button2.Enabled = false;
+          //  button2.Enabled = false;
 
         }
 
@@ -475,7 +494,8 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
 
                 for (int i = 0; i < listBox4.Items.Count; i++)
                 {
-                    string[] row = new string[] { listBox2.Items[0].ToString(), listBox4.Items[i].ToString() };
+                    var str = listBox4.Items[i].ToString();
+                    string[] row = new string[] { listBox2.Items[0].ToString(), str };
                     dataGridView1.Rows.Add(row);
 
                 }
@@ -496,7 +516,7 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
             }
 
 
-            var dateTable = GetQ($"select * from srouter");
+            var dateTable = GetQ($"select * from srouter where ");
             var lines = new List<string>();
 
             string[] columnNames = dateTable.Columns.Cast<DataColumn>().
@@ -511,6 +531,99 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
             lines.AddRange(valueLines);
             if (saveFileDialog1.FileName != "")
                 File.WriteAllLines(string.Format("{0}{1}", Path.GetFullPath(saveFileDialog1.FileName), "excel.csv"), lines, Encoding.UTF8);
+        }
+
+        private void comboBox5_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var hdr = GetQ(@"SELECT DISTINCT CONVERT(NVARCHAR(555),StartDate) +'-'+ CONVERT(NVARCHAR(555),EndDate) DisplayName,CONVERT(NVARCHAR(555),StartDate) +'|'+ 
+CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData where skillkey = '"+comboBox5.SelectedValue+"'");
+            comboBox1.DataSource = hdr;
+            comboBox1.DisplayMember = "DisplayName";
+            comboBox1.ValueMember = "Value";
+        }
+
+        private void openFileDialog2_FileOk_1(object sender, CancelEventArgs e)
+        {
+            {
+                string filePath = openFileDialog1.FileName;
+                string extension = Path.GetExtension(filePath);
+                // string header = rbHeaderYes.Checked ? "YES" : "NO";
+                string header = "YES";
+                string conStr, sheetName;
+
+                conStr = string.Empty;
+                switch (extension)
+                {
+
+                    case ".xls": //Excel 97-03
+                        conStr = string.Format(Excel03ConString, filePath, header);
+                        break;
+
+                    case ".xlsx": //Excel 07
+                        conStr = string.Format(Excel07ConString, filePath, header);
+                        break;
+                }
+
+                //Get the name of the First Sheet.
+                using (OleDbConnection con = new OleDbConnection(conStr))
+                {
+                    using (OleDbCommand cmd = new OleDbCommand())
+                    {
+                        cmd.Connection = con;
+                        con.Open();
+                        DataTable dtExcelSchema = con.GetOleDbSchemaTable(OleDbSchemaGuid.Tables, null);
+                        sheetName = dtExcelSchema.Rows[0]["TABLE_NAME"].ToString();
+                        con.Close();
+                    }
+                }
+
+                //Read Data from the First Sheet.
+                using (OleDbConnection con = new OleDbConnection(conStr))
+                {
+                    using (OleDbCommand cmd = new OleDbCommand())
+                    {
+                        using (OleDbDataAdapter oda = new OleDbDataAdapter())
+                        {
+                            string skillkey = ""; ;
+                            DataTable dt = new DataTable();
+                            cmd.CommandText = "SELECT * From [" + sheetName + "]";
+                            cmd.Connection = con;
+                            con.Open();
+                            oda.SelectCommand = cmd;
+                            oda.Fill(dt);
+                            //con.Close();
+                            DataTable Skills = new DataTable();
+                            cmd.CommandText = "SELECT distinct Center From [" + sheetName + "]";
+                            //con.Open();
+                            oda.SelectCommand = cmd;
+                            oda.Fill(Skills);
+
+                            foreach (DataRow row in Skills.Rows)
+                            {
+                                listBox1.Items.Add(row["Center"].ToString());
+                                skillkey = skillkey + row["Center"].ToString();
+                            }
+                            StringBuilder stringBuilder = new StringBuilder();
+
+                            foreach (DataRow dr in dt.Rows)
+                            {
+                                stringBuilder.Append(
+                                $@"INSERT INTO dbo.srouter 
+                                        (shift,dayoff,skillkey,StartDate,EndDate ) Values 
+                                        ('{dr["shift"]}','{dr["skillkey"]}','{comboBox5.SelectedValue}','{comboBox1.SelectedValue.ToString().Split('-')[0].ToString()}','{comboBox1.SelectedValue.ToString().Split('-')[1].ToString()}' );");
+                            }
+                            stringBuilder.ToString().Exec();
+                            //Populate DataGridView.  
+                            con.Close();
+                            dataGridView2.DataSource = dt;
+                            var hdr = GetQ(@" select distinct skillkey DisplayName, skillkey Value FROM ScheduleActualData");
+                            comboBox5.DataSource = hdr;
+                            comboBox5.DisplayMember = "DisplayName";
+                            comboBox5.ValueMember = "Value";
+                        }
+                    }
+                }
+            }
         }
 
         private void openFileDialog1_FileOk(object sender, CancelEventArgs e)
@@ -554,6 +667,7 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                 {
                     using (OleDbDataAdapter oda = new OleDbDataAdapter())
                     {
+                        string skillkey = ""; ;
                         DataTable dt = new DataTable();
                         cmd.CommandText = "SELECT * From [" + sheetName + "]";
                         cmd.Connection = con;
@@ -570,14 +684,16 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                         foreach (DataRow row in Skills.Rows)
                         {
                             listBox1.Items.Add(row["Center"].ToString());
+                            skillkey = skillkey + row["Center"].ToString();
                         }
                         StringBuilder stringBuilder = new StringBuilder();
+
                         foreach (DataRow dr in dt.Rows)
                         {
                             stringBuilder.Append(
                             $@"INSERT INTO dbo.ScheduleActualData 
-                                        (EmpId,SID,Name,Center,StartDate,EndDate,DT01,DT02,DT03,DT04,DT05,DT06,DT07,DT11,DT12,DT13,DT14,DT15,DT16,DT17 ) Values 
-                                        ('{dr["EmpId"]}','{dr["SID"]}','{dr["Name"]}','{dr["Center"]}','{dr["StartDate"]}','{dr["EndDate"]}','{dr["DT01"]}','{dr["DT02"]}',
+                                        (EmpId,SID,Name,Center,skillkey,StartDate,EndDate,DT01,DT02,DT03,DT04,DT05,DT06,DT07,DT11,DT12,DT13,DT14,DT15,DT16,DT17 ) Values 
+                                        ('{dr["EmpId"]}','{dr["SID"]}','{dr["Name"]}','{dr["Center"]}','{skillkey}','{dr["StartDate"]}','{dr["EndDate"]}','{dr["DT01"]}','{dr["DT02"]}',
 '{dr["DT03"]}','{dr["DT04"]}','{dr["DT05"]}','{dr["DT06"]}','{dr["DT07"]}','{dr["DT11"]}','{dr["DT12"]}','{dr["DT13"]}','{dr["DT14"]}','{dr["DT15"]}',
 '{dr["DT16"]}','{dr["DT17"]}' );");
                         }
@@ -585,6 +701,10 @@ CONVERT(NVARCHAR(555), EndDate) Value FROM ScheduleActualData");
                         //Populate DataGridView.  
                         con.Close();
                         dataGridView2.DataSource = dt;
+                        var hdr = GetQ(@" select distinct skillkey DisplayName, skillkey Value FROM ScheduleActualData");
+                        comboBox5.DataSource = hdr;
+                        comboBox5.DisplayMember = "DisplayName";
+                        comboBox5.ValueMember = "Value";
                     }
                 }
             }
